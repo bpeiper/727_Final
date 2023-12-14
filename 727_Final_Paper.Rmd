@@ -1,0 +1,430 @@
+---
+title: "Final Example"
+author: "Bryce Peiper"
+date: "2023-12-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r 1, echo=FALSE, warning=FALSE}
+suppressMessages(library(tidytext))
+suppressMessages(library(RedditExtractoR))
+suppressMessages(library(tidyverse))
+suppressMessages(library(ggplot2))
+suppressMessages(library(kableExtra))
+suppressMessages(library(gtsummary))
+suppressMessages(library(palmerpenguins))
+suppressMessages(library(dplyr))
+suppressMessages(library(pander))
+suppressMessages(library(tm))
+suppressMessages(library(quanteda))
+suppressMessages(library(topicmodels))
+suppressMessages(library(reshape2))
+
+load("C:/Users/bryce/Downloads/politics_content.RData")
+load("C:/Users/bryce/Downloads/conservative_content.RData")
+```
+
+## Survey Methodology 727 Final Paper
+
+#### The goal of this exploratory data anlaysis is to gather data from reddit.com, specifically from the two target subreddits of r/politics and r/conservative, in order to speculate on what these groups were focused on in the lead up (a month and six days before) to the 2023 American midterm election. The insights of what the groups we're focused on are limited to the scope of the user-base of reddit.com which isn't generalizable to the wider American public in many respects, which is useful for the context of possible analysis.
+
+#### This github link: https://github.com/bpeiper/727_Final , contains the Rdata files for the content I took from r/politics and r/conservative during our target time period of 10/01/23 - 11/06/23 as well as the Rmd file which has the original code I used to obtain that content in the first place commented out (along with the rest of the code I used to do everything else), but still with the correct syntax. The reason I didn't include the reddit extracting code in the knitted html file was that it both took long to run and had trouble being knitted for reasons I could not understand (it worked in a new environment when I ran the chunks, but not always when I knitted it). So in order to knit the code into the html I saved the reddit data which I had previously obtained into the Rdata files, loaded them, and commented out the extraction code. The knitting worked fine after that. 
+
+## Extracting Reddit Data:
+
+#### I began the analysis by searching for thread urls with the find_thread_url() function. First the thread urls are taken from the r/politics subreddit, sorted by top rated posts, and taken from the entire year of 2023. r/politics is the largest political subreddit and is known to be left leaning, and therefore will be our representative for what left leaning reddit users were thinking of in the lead up to the midterm. 
+
+```{r 2, echo=FALSE}
+# We search for submissions which contain the word 'biden' to subreddit 'liberal'. From the resulting df, we get the URLs pointing to each submission. 
+#politics_urls <- find_thread_urls(subreddit = "politics",
+#                                  sort_by = "top",
+#                                  period = "year")
+```
+#### The urls for our right wing reddit userbase will be extracted from r/conservative in the same way as with r/politics.
+
+```{r 3, echo=FALSE}
+#conservative_urls <- find_thread_urls(subreddit = "conservative",
+#                                  sort_by = "top",
+#                                  period = "year")
+
+#conservative_urls <- conservative_urls[-1,]
+```
+
+#### Using the urls that were extracted we can next pull the comments from the top posts. Moreover, we are able to specify the timeframe of posts by setting the extracted urls date_utc variable as a date using the as.Date function and getting the desired range of dates (Oct. 1 to Nov. 6) by subsetting the data. Both subreddits go through the same process in almost the exact same way.
+
+#### Observing the bar graph below, one of the earliest observations to be made about the extracted data is that r/politics has a bit more than twice as many posts as r/conservative during our time period of interest.
+
+```{r 4, echo=FALSE}
+# This is how I got the content for r/politics
+
+#politics_urls_1 <- politics_urls[-1,]
+
+#politics_urls_1$date_utc <- as.Date(politics_urls_1$date_utc)
+
+#politics_urls_a <- politics_urls_1[politics_urls_1$date_utc >= "2023-10-1",]
+
+#politics_urls_r <- politics_urls_a[politics_urls_a$date_utc <= "2023-11-6",]
+
+#politics_content <- get_thread_content(urls = politics_urls_r$url)
+```
+```{r 5, echo=FALSE}
+# This is how I got the data for conservative
+
+#conservative_urls$date_utc <- as.Date(conservative_urls$date_utc)
+
+#con_urls_a <- conservative_urls[conservative_urls$date_utc >= "2023-10-1",]
+
+#con_urls_r <- con_urls_a[con_urls_a$date_utc <= "2023-11-6",]
+
+#conservative_content <- get_thread_content(urls = con_urls_r$url)
+
+#save(politics_content, file = "politics_content.RData")
+#save(conservative_content, file = "conservative_content.RData")
+```
+```{r 6, echo=FALSE}
+barplot(c(length(politics_content$comments$url),length(conservative_content$comments$url)), names.arg = c("r/politics", "r/conservative") , col=c("blue","red"), xlab = c("Subreddits"), ylab = "Amount of Posts Oct. 1 - Nov. 6", ylim = c(0,35000))
+```
+
+## Frequency Analysis:
+
+#### The next major step taken to discover what these subreddits are focused on is to tokenize the words of all the comments of the collected posts in order to count the words and find which are used with the greatest frequency. The most frequently used words would most likely be the subjects given the greatest focus.
+
+#### Two extra stop words were added to the default stop word data. The extra words were "people" and "https" which I judged as not bringing anything substantial in terms of observation.
+
+```{r 7, echo=FALSE, message=FALSE}
+# I want to try to get the comments or the headers tokenize and then sort
+
+d_c <- tibble(txt = conservative_content$comments$comment)
+
+d_tokens_c<- d_c %>%
+  unnest_tokens(word, txt)
+
+d_p <- tibble(txt = politics_content$comments$comment)
+
+d_tokens_p<- d_p %>%
+  unnest_tokens(word, txt)
+
+# Removing stop words:
+
+data("stop_words")
+
+stope_words <-rbind(stop_words, c("https", "SMART"))
+stope_words <-rbind(stop_words, c("people", "SMART"))
+
+d_tokens_p <- anti_join(d_tokens_p, stope_words)
+
+invisible(sort(table(d_tokens_p)))
+
+d_tokens_c <- anti_join(d_tokens_c, stope_words)
+
+#grepl("https", stop_words_1, fixed = TRUE)
+
+invisible(sort(table(d_tokens_c)))
+
+# head(sort(Forbes2000$profits,decreasing=TRUE), n = 50)
+
+table_c <- as.data.frame(table(d_tokens_c))
+
+invisible(sort(table(d_tokens_p)))
+
+table_p <- as.data.frame(table(d_tokens_p))
+```
+```{r 7.5, echo = FALSE}
+barplot(table_p$Freq[table_p$Freq > 480], names.arg= table_p$word[table_p$Freq > 480], xlab = "words", main = "r/politics favorite words", xlim = c(1,8), ylim = c(1,1500), ylab = "frequency", cex.names = .5, width = .5, xpd = FALSE, col = "blue")
+```
+
+
+#### The most frequently used word during our target time period in r/politics was democrats which was used almost 1,200 times. The most frequenly used word being the liberal American political party suggests that the users of r/politics are focused on party related matters which certainly would be related to the 2023 midterm election. The second most frequently used word is "don" which almost definitely is an abbreviated version of Donald Trump who is the most prominent member of the opposition party. So, the top two words suggest the r/politics users are focused first on their own party and second on the most prominent member of the opposing party. The next important frequently used word, and fourth most frequent overall on r/politics, is election. I believe election is mostly used in this time period to refer to the midterm election which would suggest a priority focus on the midterm election as a concept of importance. However, the term "election" could also be confounded with the topic of the "stolen election" which I believe could be a popular subject relating to the 2020 national election. Another one of the top 13 most frequently used words is "court" which is probably related to both the supreme court and Donald Trump court related events that tie in with the idea of the "stolen election" mentioned in the previous sentence. 
+
+#### To help differentiate between topics like the supreme court and Donald Trump court related things, and being able to judge their relative popularity I will use topic modeling at a later portion of this analysis.
+
+#### The next part of the analysis will be the most frequently used words on r/conservative:
+
+
+```{r 8, echo=FALSE, message=FALSE}
+data("stop_words")
+
+stope_words <-rbind(stop_words, c("https", "SMART"))
+stope_words <-rbind(stop_words, c("people", "SMART"))
+stope_words <-rbind(stop_words, c("https", "SMART"))
+
+d_tokens_c <- anti_join(d_tokens_c, stope_words)
+
+invisible(sort(table(d_tokens_c)))
+
+table_c <- as.data.frame(table(d_tokens_c))
+```
+```{r 8.5, echo=FALSE}
+barplot(table_c$Freq[table_c$Freq > 460], names.arg= table_c$word[table_c$Freq > 460], xlab = "words", main = "r/conservative favorite words", xlim = c(1,8), ylim = c(1,1500), ylab = "frequency", cex.names = .5, width = .5, xpd = FALSE, col = "red")
+```
+
+#### One immediate contrast to the most frequently used words on r/politics, is that the right aligned political party, the "republicans", does not make the top 13 most frequently used words on r/conservative even though "democrats" was the most frequently used word overall on r/politics. Instead, the most frequently used word on r/conservative during our time period of interest is "israel" which has a frequency of above 1200 which is higher than any word in r/politics during the same time period. r/conservative had half as many posts compared to r/politics during our time period which suggests a significantly smaller user base, making the result of r/conservative having the most frequently used word a surprising result and likely representative of an even greater amount of focus than a 1:1 comparison might suggest. The second most frequently used word on r/conservative is "hamas" which is very connected with the topic of "israel" during the 10/01/23 - 11/06/23 time period because of the war in Gaza. There is a large gap between the frequency of "hamas" and the next most popular word which is "trump". However, if the frequency of don and trump are added together they would be greater in frequency than even Israel. I think it's most likely that users would use "don" or "trump" without the other as a singular term of reference, although there could be some kind of factor that I'm not foreseeing that might confound the results (like don somehow also counting donald for example). Although it is important to consider that "hamas" and "israel" could have a similar relationship of use to "don" and "trump", and would be greater than the latter still if added together. In terms of our primary focus the only term that could be related to the upcoming election is "vote" which is the tenth most frequently used word. Comparing this to r/politics where "election" was the fourth most frequently used word suggests that the midterm election was more of a focus in r/politcs than r/conservative. Overall it seems like the subject of greatest focus in r/conservative (based on this frequency analysis) is the Israel Hamas conflict or possibly Donald Trump. The midterm election and Republican party are not represented with the same intensity of frequency on the r/conservative subreddit comparatively.
+
+## Topic Modeling:
+
+#### For further insight into the interests of the users of our selected subreddits before the midterm election I will utilize topic modeling. The process is the same for both r/politcs and r/conservative. I begin by using the corpus function and then the tokens function to prepare for creating the Displacement Tracking Matrix. This initial process of tokenization is different than the previous one used to count the words by frequency where I used unnest_tokens (that function was not compatible with dtm). I also take out the stop words before using the dfm function to create the DTM. From there the data is cleaned and the LDA function is used to create the topic model. I took the top 5 terms from each topic and organized them by greatest proportion of use to least proportion of use and took the top 10 over all.
+
+#### First we'll look at the top 10 topics from r/conservative:
+
+```{r 9, echo=FALSE, message=FALSE, results='hide'}
+d_c2 <- d_c
+d_p2 <- d_p
+
+corpus_sotu_orig <- corpus(d_c2, 
+                                     docid_field = "doc_id",
+                                     text_field = "txt")
+
+# Tokenization
+corpus_sotu_proc <- tokens(corpus_sotu_orig, 
+                           remove_punct = TRUE, # remove punctuation
+                           remove_numbers = TRUE, # remove numbers
+                           remove_symbols = TRUE) %>%
+                           tokens_tolower()
+
+lemmaData <- read.csv2("baseform_en.tsv", # downloaded from https://github.com/tm4ss/tm4ss.github.io/tree/master/resources
+                       sep="\t", 
+                       header=FALSE, 
+                       encoding = "UTF-8", 
+                       stringsAsFactors = F)
+
+
+corpus_sotu_proc_c <- corpus_sotu_proc %>%
+                             tokens_remove(stopwords("english")) %>%
+                             tokens_ngrams(1)
+
+
+
+DTM_c <- dfm(corpus_sotu_proc_c)
+
+minimumFrequency <- 10
+
+DTM_c  <- dfm_select(DTM_c, 
+                   pattern = "[a-z]", 
+                   valuetype = "regex", 
+                   selection = 'keep')
+colnames(DTM_c) <- stringi::stri_replace_all_regex(colnames(DTM_c), 
+                                                 "[^_a-z]","")
+
+DTM_c <- dfm_compress(DTM_c, "features")
+
+# We have several rows which do not have any content left. Drop them.
+
+sel_idx <- rowSums(DTM_c) > 0
+DTM_c <- DTM_c[sel_idx, ]
+#textdata <- textdata[sel_idx, ]
+
+K <- 10
+# Set seed to make results reproducible
+set.seed(9163)
+invisible(topicModel_c <- LDA(DTM_c, 
+                  K, 
+                  method="Gibbs", 
+                  control=list(iter = 500, 
+                               verbose = 25)))
+
+tmResult <- posterior(topicModel_c)
+
+beta_c <- tmResult$terms
+invisible(glimpse(beta_c))   
+
+theta_c <- tmResult$topics
+invisible(glimpse(theta_c))               
+
+invisible(terms(topicModel_c, 10))
+
+# Top terms per topic. Use top 5 to interpret topics
+top5termsPerTopic <- terms(topicModel_c, 
+                           5)
+# For the next steps, we want to give the topics more descriptive names than just numbers. Therefore, we simply concatenate the five most likely terms of each topic to a string that represents a pseudo-name for each topic.
+topicNames_c <- apply(top5termsPerTopic, 
+                    2, 
+                    paste, 
+                    collapse=" ")
+
+```
+```{r 10, echo=FALSE}
+topicProportions <- colSums(theta_c) / nrow(DTM_c)  # average probability over all paragraphs
+names(topicProportions) <- topicNames_c     # Topic Names
+sort(topicProportions, decreasing = TRUE) # sort
+
+topicNames_c <- apply(terms(topicModel_c, 5), 2, paste, collapse = " ")  # top five terms per topic 
+```
+
+
+#### The results of the topic modeling for the top 10 r/conservarive topics has produced some surprising results that calls our word frequency counting observations into question. One of the top topics (all of the top 10 topics for both r/politics and r/conservative almost had the same probability) in our top 10 topics is "will get vote party republicans" which does seem to suggest that the both the republican party and voting were on r/conservative users minds in the lead up to the midterm election; even though "vote" and "republicans" weren't especially impressive looking on the word frequency graph. Predictably another top topic out of the 10 is "israel hamas support gaza palestine" which is to be expected given our word frequency results. Interestingly another war is also a top 10 topic with "us war money ukraine russia". In general, r/conservative is more focused on international affairs than r/politics. There are two different topics here which feature Donald trump: "s t can don get" and "trump removed biden deleted conservative". The second of those topics looks like a potential confounding of two popular topics on the subreddit, combining interested regarded deleted comments with donald trump. But even with the second Donald comment being suspect, it seems like Donald Trump is still an especially popular topic (potentially the most popular by a significant amount) given he pops in two of the top ten topics. These topics confirm a lot of the results of the frequency analysis with Israel/Hamas and Donald Trump still seeming like popular topics, while also adding the insight that Republicans and voting were still topics that were present in the collective r/conservative consiousness. 
+
+#### Now looking at the same process for r/politics
+
+```{r 11, echo=FALSE, message=FALSE, results='hide'}
+d_c2 <- d_c
+d_p2 <- d_p
+
+corpus_sotu_orig <- corpus(d_p2, 
+                                     docid_field = "doc_id",
+                                     text_field = "txt")
+
+# Tokenization
+corpus_sotu_proc <- tokens(corpus_sotu_orig, 
+                           remove_punct = TRUE, # remove punctuation
+                           remove_numbers = TRUE, # remove numbers
+                           remove_symbols = TRUE) %>%
+                           tokens_tolower()
+
+lemmaData <- read.csv2("baseform_en.tsv", # downloaded from https://github.com/tm4ss/tm4ss.github.io/tree/master/resources
+                       sep="\t", 
+                       header=FALSE, 
+                       encoding = "UTF-8", 
+                       stringsAsFactors = F)
+
+#corpus_sotu_proc_p <-  tokens_replace(corpus_sotu_proc, # "Substitute token types based on vectorized one-to-one matching"
+#                                    lemmaData$V1, 
+#                                    lemmaData$V2,
+#                                    valuetype = "fixed") 
+
+corpus_sotu_proc_p <- corpus_sotu_proc %>%
+                             tokens_remove(stopwords("english")) %>%
+                             tokens_ngrams(1)
+
+
+
+DTM_p <- dfm(corpus_sotu_proc_p)
+
+#DTM_p <- d_tokens_p
+
+minimumFrequency <- 10
+#DTM_p <- dfm_trim(DTM_p, 
+#                min_docfreq = minimumFrequency,
+#                max_docfreq = Inf)
+
+DTM_p  <- dfm_select(DTM_p, 
+                   pattern = "[a-z]", 
+                   valuetype = "regex", 
+                   selection = 'keep')
+colnames(DTM_p) <- stringi::stri_replace_all_regex(colnames(DTM_p), 
+                                                 "[^_a-z]","")
+
+DTM_p <- dfm_compress(DTM_p, "features")
+
+# We have several rows which do not have any content left. Drop them.
+
+sel_idx <- rowSums(DTM_p) > 0
+DTM_p <- DTM_p[sel_idx, ]
+#textdata <- textdata[sel_idx, ]
+
+K <- 10
+# Set seed to make results reproducible
+set.seed(9161)
+invisible(topicModel_p <- LDA(DTM_p, 
+                  K, 
+                  method="Gibbs", 
+                  control=list(iter = 500, 
+                               verbose = 25)))
+
+tmResult <- posterior(topicModel_p)
+
+beta_p <- tmResult$terms
+invisible(glimpse(beta_p))   
+
+# Each doc has a distribution over k topics
+
+theta_p <- tmResult$topics
+invisible(glimpse(theta_p))               
+
+invisible(terms(topicModel_p, 10))
+
+# Top terms per topic. Use top 5 to interpret topics
+top5termsPerTopic <- terms(topicModel_p, 
+                           5)
+# For the next steps, we want to give the topics more descriptive names than just numbers. Therefore, we simply concatenate the five most likely terms of each topic to a string that represents a pseudo-name for each topic.
+topicNames_p <- apply(top5termsPerTopic, 
+                    2, 
+                    paste, 
+                    collapse=" ")
+
+```
+```{r 12, echo=FALSE}
+
+topicProportions_p <- colSums(theta_p) / nrow(DTM_p)  # average probability over all paragraphs
+names(topicProportions_p) <- topicNames_p     # Topic Names
+sort(topicProportions_p, decreasing = TRUE) # sort
+
+topicNames_p <- apply(terms(topicModel_p, 5), 2, paste, collapse = " ")  # top five terms per topic 
+```
+#### The most popular topic listedis related to voting and the Republican party, which I read as anxieties relating to Republicans and the 2023 midterm election. It makes sense that voting and the Republicans would make an appearance in the top 10 topics considering the results of our previous frequency analysis. Some of these topics related to Donald Trump look as if they could be combined. For example, "s t shit don fucking " and "trump case jail president already" look similar enough that they could have potentially been combined into one topic, which would make Trump the most popular theme by a large amount. However, maybe these topics are more distinct than I realize with one topic more about Trump legal woes, and the other topic more about general exasperation related to Donald Trump. The fact there are two different Donald Trump topics in the top 10 once again suggests that he is the focus of a lot of discussion just like in r/conservative. How interest in Donald Trump would transfer to the midterm election is unclear.
+
+#### Looking at the proportions of the different topics for both topic models it appears like all of the topics are very close in their probability to appear in any given comment. Looking at the graphs below shows how close all the topics are with their proportions.
+
+## Topic Model Visualizations:
+
+```{r 13, echo=FALSE}
+topicProportionExamples_p <- as_tibble(theta_p) 
+colnames(topicProportionExamples_p) <- topicNames_p
+
+graph_p <- lapply(topicProportionExamples_p, mean, na.rm= TRUE)
+graph_p <- as_tibble(graph_p) 
+colnames(graph_p) <- topicNames_p
+
+names_p <- c("an get money go need", "trump case jail president already", "people can see believe hate", "like just think really thing", "s t shit don fucking", "one man got life old", "will get even never way", "republicans vote party republican gop", "gt time said years every", "people us right many country")
+
+proportion_p <- c(0.09977, 0.1001, 0.09864, 0.1006, 0.1002, 0.09961, 0.1005, 0.1008, 0.0998, 0.09994)
+
+graph_p_data <- as_tibble(iris)
+
+graph_p_data <- graph_p_data[,5]
+
+graph_p_data <- graph_p_data[1:10,]
+
+graph_p_data$names_p <- names_p
+
+graph_p_data <- graph_p_data[,2]
+
+graph_p_data$proportion_p <- as.numeric(proportion_p)
+
+
+
+graph_p_data %>%  ggplot(aes(x=names_p, y=proportion_p)) +
+  geom_bar(stat="identity", fill = "blue") + coord_flip() + labs(x = "Topic", y = "Proportion", title = "Proportions of r/politics Top 10 Topics", caption = "Data: Reddit (10/01/23 - 11/06/23)")
+
+```
+
+
+
+```{r 14, echo=FALSE}
+topicProportionExamples_c <- as_tibble(theta_c) 
+colnames(topicProportionExamples_c) <- topicNames_c
+
+graph_c <- lapply(topicProportionExamples_c, mean, na.rm= TRUE)
+graph_c <- as_tibble(graph_c) 
+colnames(graph_c) <- topicNames_c
+
+names_c <- c("us war money ukraine russia", "right now time left every", "think good see well really", "trump removed biden deleted conservative", "like just people one know", "gt years also even first", "israel hamas support gaza palestine", "people want take country way",  "will get vote party republicans", "s t can don get")
+
+proportion_c <- c(0.1002, 0.09987, 0.1002, 0.09949, 0.09973, 0.09966, 0.1006, 0.09989, 0.1006, 0.09978)
+
+graph_c_data <- as_tibble(iris)
+
+graph_c_data <- graph_c_data[,5]
+
+graph_c_data <- graph_c_data[1:10,]
+
+graph_c_data$names_c <- names_c
+
+graph_c_data <- graph_c_data[,2]
+
+graph_c_data$proportion_c <- as.numeric(proportion_c)
+
+#barplot(proportion_c, names.arg = names_c)
+
+graph_c_data %>%  ggplot(aes(x=names_c, y=proportion_c)) +
+  geom_bar(stat="identity", fill = "red") + coord_flip() + labs(x = "Topic", y = "Proportion", title = "Proportions of r/conservative Top 10 Topics", caption = "Data: Reddit (10/01/23 - 11/06/23)")
+```
+
+#### The only topic that would have a noticeably higher proportion than any other would be for the Donald Trump topics (both r/politics and r/conservative have 2 Donald Trump related topics in each of their top 10) if they would be combined. Otherwise the proportions of all the topics are effectively the same. 
+
+## Conclusion:
+
+#### There were two main analysis done in this research project: the frequency analysis and the topic modeling. The main take aways from the frequency analysis were that r/politics users were much more party focused than r/conservative users who were most focused on Israel and Hamas. In fact, it was especially notable that r/conservative had the most frequently used word overall with "israel", considering that r/conservative had less than half as many posts as r/politics. The focus of r/conservative on Israel/Hamas in the period leading up to the 2023 midterm election seems stronger than any of the interests in r/politics. The results in terms of interest in a political party were striking as "democrats" was the most frequently used word overall in r/politics, while "republicans" didn't show up in the top 13 most frequently used words on r/conservative. Furthermore, r/politics users seemed more focused on the upcoming midterm election with "election" being a higher ranked frequency word than "vote" was in r/conservative (their most frequently potentially midterm related word). Although reddit is not an accurate reflection of American voters, the results of the frequency analysis would have liberal users more focused on the midterm election, which reflects the result of the American 2023 midterm election having a strong performance by Democrats. The topic analysis showed a lot of the same interests of the subreddit users that were on display with the frequency analysis with the exception that it was more clear that r/conservative users still were intereted in the midterm election. One of the top 10 topics according to the topic model was related to Republicans and voting, which gives more evidence that the "vote" from the r/conservative frequency analysis was related to the midterm. For both subreddits the topic models had multiple topics featuring Donald Trump, cementing him as a shared major focus. However, it is unclear if an interest in Donald Trump would transfer to interest in the midterm elction where Donald Trump did not run. So, taking both the frequency analysis and topic modeling into account it seems based off these results that both r/politics users and r/conservative users did discuss the midterm election and did devote attention to it in their comments. But, r/politics users seem to have more evidence to suggest they focused on the midterm election and their corresponding political party at greater levels than the r/conservative users who had their attention divided by other international issues.
